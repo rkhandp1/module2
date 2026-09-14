@@ -9,9 +9,13 @@ from collections import Counter, defaultdict  # we will using "Counter" data str
 
 def load_data():
     print(f"{'-' * 10} Load Dataset {'-' * 10}")
-    train_dataset = load_dataset(path="wikitext", name="wikitext-103-raw-v1", split="train")
-    dev_dataset = load_dataset(path="wikitext", name="wikitext-103-raw-v1", split="validation")
-
+    # the dataset has been moved so I had to comment out the original calls to load_dataset and replace them 
+    # with my own with the updated path
+    # train_dataset = load_dataset(path="wikitext", name="wikitext-103-raw-v1", split="train")
+    # dev_dataset = load_dataset(path="wikitext", name="wikitext-103-raw-v1", split="validation")
+    train_dataset = load_dataset(path="Salesforce/wikitext", name="wikitext-103-raw-v1", split="train")
+    dev_dataset = load_dataset(path="Salesforce/wikitext", name="wikitext-103-raw-v1", split="validation")
+    
     print(f"{'-' * 10} an example from the train set {'-' * 10}")
     print(train_dataset['text'][10])
 
@@ -48,7 +52,7 @@ def create_ngrams(data, n, splitter, tokenizer):
 
             # TODO: tokenize the words in the sentence
             # name the list of tokens as 'tokens'
-
+            tokens = tokenizer.tokenize(sentence)
             # Your code ends here
 
             # drop short sentences
@@ -66,7 +70,13 @@ def create_ngrams(data, n, splitter, tokenizer):
                 #   and its occurrence count as values
                 # - 'next_word_candidates' is a dictionary with tuple of the context
                 #   (i.e. the (n-1)-grams) as keys and a set of possible next words as values
+                ngram = tuple(tokens[idx : idx+n]) # pull the fulll window of n consecutive tokens starting at index 
+                context = tuple(tokens[idx:idx+n-1]) # grab the first n-1 tokens of the window 
+                next_word = tokens[idx+n-1] # the token being predicted 
 
+                ngrams[ngram] += 1 # incriment ngrams 
+                ngram_context[context] += 1 # incriment the context window
+                next_word_candidates[context].add(next_word) # add the predicted token to the dict of candidates
                 # Your code ends here
 
     # Sort all the next word candidates
@@ -86,7 +96,10 @@ def create_ngrams(data, n, splitter, tokenizer):
         for nw in next_words:
             # TODO: compute the estimated probability of the next word given the context
             # hint: use the counters 'ngrams' and 'ngram_context' you have created above
-
+            full_ngram = context + (nw,) # add the next word to the context;
+            prob = ngrams[full_ngram] / ngram_context[context] 
+            scores.append(prob)
+            
             # Your code ends here
 
         # record the most probable next word as the prediction
@@ -119,6 +132,25 @@ def plot_next_word_prob(word_scores, word_candidates, context, top=10, save_path
     # - for a given context, elements in word_scores[context] and word_candidates[context] have one-to-one correspondence
     # - context is a tuple of words
 
+    scores = word_scores[context] 
+    candidates = word_candidates[context]
+
+    # sort candidates by score and take top N
+    sorted_idx = np.argsort(scores)[::-1][:top]
+    top_words = [candidates[i] for i in sorted_idx]
+    top_scores = [scores[i] for i in sorted_idx]
+
+    # plot as bar chart 
+    plt.figure(figsize=(10,6))
+    plt.bar(top_words, top_scores)
+    plt.xlabel('Next word')
+    plt.ylabel('Probability')
+    plt.title(f'Top {top} next-word probabilities after {"".join(context)}')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path)
 
     # Your code ends here
 
